@@ -50,7 +50,7 @@
     <h6>Pendaftaran Baru</h6>
     <input type="text" id="regNama" class="form-control mb-2" placeholder="Nama">
     <input type="text" id="regNIK" class="form-control mb-2" placeholder="NIK">
-    <button class="btn btn-success" onclick="register()">Daftar Wajah</button>
+    <button id="btnReg" class="btn btn-outline-success w-100" onclick="register()">Daftar Wajah</button>
   </div>
 </div>
 
@@ -121,42 +121,116 @@
   }
 
   async function processAbsence() {
-    status.innerText = "Mengenali...";
+  const btn = document.getElementById('btnAbsen');
+  
+  // 1. Kunci tombol, ubah teks dan warna
+  btn.disabled = true;
+  btn.innerText = "SEDANG MEMPROSES...";
+  btn.className = "btn btn-secondary btn-lg shadow"; // Berubah jadi abu-abu
+
+  status.innerText = "MENGENALI WAJAH...";
+  status.className = "badge bg-warning text-dark p-2";
+
+  try {
     const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-    if (!detection) return alert("Wajah tidak terlihat!");
+    
+    if (!detection) {
+      alert("Wajah tidak terdeteksi. Silakan coba lagi.");
+      resetAbsenButton(); // Kembalikan tombol jika gagal
+      return;
+    }
 
     const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
     const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
     
-    if (bestMatch.label === 'unknown') return alert("Wajah tidak dikenal!");
-
-    navigator.geolocation.getCurrentPosition(async pos => {
-      const loc = pos.coords.latitude + "," + pos.coords.longitude;
-      const res = await callGAS({ 
-        action: "attendance", 
-        name: bestMatch.label, 
-        type: "HADIR", 
-        location: loc 
+    if (bestMatch.label === 'unknown') {
+      alert("Wajah tidak dikenali! Silakan registrasi dahulu.");
+      resetAbsenButton();
+    } else {
+      navigator.geolocation.getCurrentPosition(async pos => {
+        const loc = `${pos.coords.latitude},${pos.coords.longitude}`;
+        
+        status.innerText = "MENGIRIM DATA...";
+        const res = await fetch(GAS_URL, {
+          method: "POST",
+          body: JSON.stringify({ 
+            action: "attendance", 
+            name: bestMatch.label, 
+            type: "HADIR", 
+            location: loc 
+          })
+        });
+        
+        await res.json();
+        alert("BERHASIL: " + bestMatch.label + "\nLokasi dicatat.");
+        resetAbsenButton();
+      }, (err) => {
+        alert("Gagal mengambil lokasi GPS. Pastikan GPS aktif.");
+        resetAbsenButton();
       });
-      alert(res.message);
-    });
+    }
+  } catch (e) {
+    alert("Terjadi kesalahan teknis.");
+    resetAbsenButton();
   }
+}
+
+// Fungsi pembantu untuk mengaktifkan kembali tombol absen
+function resetAbsenButton() {
+  const btn = document.getElementById('btnAbsen');
+  btn.disabled = false;
+  btn.innerText = "AMBIL ABSEN";
+  btn.className = "btn btn-primary btn-lg shadow";
+  status.innerText = "SISTEM SIAP";
+  status.className = "badge bg-success p-2";
+}
 
   async function register() {
-    const nama = document.getElementById('regNama').value;
-    const nik = document.getElementById('regNIK').value;
-    const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-    if(!detection) return alert("Wajah tidak terdeteksi!");
+  const btn = document.getElementById('btnReg');
+  const nama = document.getElementById('regNama').value;
+  const nik = document.getElementById('regNIK').value;
+  
+  if(!nama || !nik) return alert("Isi Nama & NIK!");
 
-    const res = await callGAS({
-      action: "register",
-      name: nama,
-      nik: nik,
-      descriptor: Array.from(detection.descriptor)
-    });
-    alert(res.message);
-    location.reload();
+  // 1. Kunci tombol registrasi
+  btn.disabled = true;
+  btn.innerText = "MENGIRIM DATA...";
+  btn.className = "btn btn-secondary w-100";
+
+  status.innerText = "MEREKAM WAJAH...";
+  
+  try {
+    const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+    
+    if(detection) {
+      await fetch(GAS_URL, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "register",
+          name: nama,
+          nik: nik,
+          descriptor: Array.from(detection.descriptor)
+        })
+      });
+      alert("Karyawan Berhasil Didaftarkan!");
+      location.reload(); // Refresh akan mengaktifkan tombol kembali secara otomatis
+    } else {
+      alert("Wajah tidak terdeteksi!");
+      resetRegButton();
+    }
+  } catch (e) {
+    alert("Gagal mendaftar.");
+    resetRegButton();
   }
+}
+
+function resetRegButton() {
+  const btn = document.getElementById('btnReg');
+  btn.disabled = false;
+  btn.innerText = "Daftar Wajah";
+  btn.className = "btn btn-outline-success w-100";
+  status.innerText = "SISTEM SIAP";
+}
 
   window.onload = init;
 </script>
