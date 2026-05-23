@@ -57,7 +57,7 @@
 </div>
 
 <script>
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbzaDkGzLcs_HzcaqtaKlMuVevysQ-tnQKxzutyMSStTNKePvrxcVOSxkdpAeWNFYRDC/exec"; // GANTI DENGAN URL GAS ANDA
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbzOtHaLSqnmVzJnHHL1-mqOflSenrgVzIsRRuq3gAsuCBfp71zfBGDnWi1k2AWGK8OZ/exec"; // GANTI DENGAN URL GAS ANDA
   
   let labeledDescriptors = [];
   const video = document.getElementById('video');
@@ -107,6 +107,7 @@
 
       const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
       const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+	  const result = await res.json();
       
       if (bestMatch.label === 'unknown') {
         alert("Wajah tidak dikenali!");
@@ -118,8 +119,8 @@
             method: "POST",
             body: JSON.stringify({ action: "attendance", name: bestMatch.label, type: tipe, location: loc })
           });
-          alert(`BERHASIL ABSEN ${tipe}!\nNama: ${bestMatch.label}`);
-          resetAbsenUI();
+          alert(`SISTEM: ${result.message}\nNama: ${bestMatch.label}`);
+			resetUI();
         }, (err) => {
           alert("Gagal ambil lokasi GPS.");
           resetAbsenUI();
